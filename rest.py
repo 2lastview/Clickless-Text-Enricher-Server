@@ -1,12 +1,15 @@
 import web
 import uuid
 import logging
+from PIL import Image
+import pytesseract
 
 LOGGER = logging.getLogger('rest')
 
 urls = ('/enrich', 'Enrich')
 
-supported_filetypes = ['jpg', 'tiff']
+supported_filetypes = ['jpg', 'tiff', 'png']
+supported_languages = ['eng', 'deu', 'ita']
 
 class Enrich:
 
@@ -22,6 +25,7 @@ class Enrich:
     def POST(self):
         LOGGER.info('POST in Enrich called.')
 
+        lang_from = None
         lang_to = None
         enrich = True
 
@@ -68,7 +72,10 @@ class Enrich:
             raise web.badrequest(message='400 Bad Request: No image object created.')
 
         if 'langfrom' in data:
-            lang_from = str(data.langfrom)
+            lang_from = str(data.langfrom).lower()
+
+            if lang_from not in supported_languages:
+                lang_from = None
 
         if 'langto' in data:
             lang_to = str(data.langto)
@@ -85,7 +92,22 @@ class Enrich:
                 LOGGER.debug('Enrich is not True or False.')
                 raise web.badrequest(message='400 Bad Request: Enrich is not True or False.')
 
-        return final_image_path
+        return self.textFromImage(final_image_path, lang_from)
+
+    def textFromImage(self, image_path, lang_from=None):
+        LOGGER.info('getTextFromImage in Enrich called with parameters: image_path=' + image_path + ' and lang_from=' + str(lang_from))
+
+        if image_path == None or len(image_path) == 0:
+            LOGGER.warning('500 Internal Server: Path to image is not valid.')
+            raise web.internalerror(message='500 Internal Server: Path to image is not valid.')
+
+        try:
+            image = Image.open(image_path)
+        except:
+            LOGGER.warning('Could not open image.')
+            raise web.internalerror(message='500 Internal Server: Could not open image.')
+
+        return pytesseract.image_to_string(image, lang_from)
 
 
 def main():
