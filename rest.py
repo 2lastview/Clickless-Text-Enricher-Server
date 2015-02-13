@@ -3,6 +3,7 @@ import uuid
 import logging
 from PIL import Image
 import pytesseract
+import goslate
 
 LOGGER = logging.getLogger('rest')
 
@@ -10,6 +11,9 @@ urls = ('/enrich', 'Enrich')
 
 supported_filetypes = ['jpg', 'tiff', 'png']
 supported_languages = ['eng', 'deu', 'ita']
+supported_languages_google_translate = {'eng':'en', 'deu':'de', 'ita':'it'}
+
+gs = goslate.Goslate()
 
 class Enrich:
 
@@ -21,12 +25,11 @@ class Enrich:
             <input type="file" name="image" /><input type="submit" />
             </form></body></html>"""
 
-
     def POST(self):
         LOGGER.info('POST in Enrich called.')
 
-        lang_from = None
-        lang_to = None
+        source_lang = None
+        target_lang = None
         enrich = True
 
         data = web.input(image={})
@@ -65,40 +68,51 @@ class Enrich:
                 raise web.internalerror(message='500 Internal Server: Could not store image.')
             finally:
                 final_image_path = image_dir + '/' + image_name
+                text_from_image = self.getText(final_image_path, source_lang)
+
+                if len(text_from_image) <= 0:
+                    LOGGER.debug('No text detected in image.')
+                    raise web.notfound(message='404 Bad Request: No text detected in image.')
 
             LOGGER.debug('Image saved in ' + image_dir + '/' + image_name)
         else:
             LOGGER.debug('No image object created.')
             raise web.badrequest(message='400 Bad Request: No image object created.')
 
-        if 'langfrom' in data:
-            lang_from = str(data.langfrom).lower()
+        if 'source' in data:
+            source_lang = str(data.source).lower()
 
-            if lang_from not in supported_languages:
-                lang_from = None
+            if source_lang not in supported_languages:
+                source_lang = None
 
-        if 'langto' in data:
-            lang_to = str(data.langto)
+        if 'target' in data:
+            target_lang = str(data.target).lower()
+
+            if target_lang not in supported_languages:
+                LOGGER.debug('This target language is not supported.')
+                raise web.badrequest(message='400 Bad Request: This target language is not supported.')
+
+            if source_lang == None:
+                translation = self.getTranslation(text_from_image, supported_languages_google_translate[target_lang])
+            else:
+                translation = self.getTranslation(text_from_image, supported_languages_google_translate[target_lang], supported_languages_google_translate[source_lang])
+
+            detected_lang = self.getLanguage(text_from_image)
         else:
-            LOGGER.debug('No language to translate to specified.')
+            LOGGER.debug('No language to translate into specified.')
             raise web.badrequest(message='400 Bad Request: No language to translate into specified.')
 
         if 'enrich' in data:
-            if str(data.enrich).lower() == 'false':
-                enrich = False
-            elif str(data.enrich).lower() == 'true':
-                enrich = True
-            else:
-                LOGGER.debug('Enrich is not True or False.')
-                raise web.badrequest(message='400 Bad Request: Enrich is not True or False.')
+            if str(data.enrich).lower() == 'true':
+                enriched_text = self.enrich()
 
-        return self.textFromImage(final_image_path, lang_from)
+        return self.getJson(text_from_image, translation, detected_lang)
 
-    def textFromImage(self, image_path, lang_from=None):
-        LOGGER.info('getTextFromImage in Enrich called with parameters: image_path=' + image_path + ' and lang_from=' + str(lang_from))
+    def getText(self, image_path, source_lang=None):
+        LOGGER.info('getText in Enrich called with parameters: image_path=' + image_path + ' and source_lang=' + str(source_lang))
 
         if image_path == None or len(image_path) == 0:
-            LOGGER.warning('500 Internal Server: Path to image is not valid.')
+            LOGGER.warning('Path to image is not valid.')
             raise web.internalerror(message='500 Internal Server: Path to image is not valid.')
 
         try:
@@ -107,7 +121,42 @@ class Enrich:
             LOGGER.warning('Could not open image.')
             raise web.internalerror(message='500 Internal Server: Could not open image.')
 
-        return pytesseract.image_to_string(image, lang_from)
+        return pytesseract.image_to_string(image, source_lang)
+
+    def getTranslation(self, text, target_lang, source_lang=None):
+        LOGGER.info('getTranslation in Enrich called with parameters: text=' + text + ' and target_lang=' + target_lang + ' and source_lang=' + str(source_lang))
+
+        if target_lang == None or len(target_lang) == 0:
+            LOGGER.warning('Target lagnuage is not valid.')
+            raise web.internalerror(message='500 Internal Server: Target language is not valid.')
+
+        try:
+            if source_lang == None:
+                translation = gs.translate(text, target_lang)
+                LOGGER.debug('Translation: ' + translation)
+            else:
+                translation = gs.translate(text, target_lang, source_lang)
+                LOGGER.debug('Translation: ' + translation)
+        except:
+            LOGGER.warning('Could not translate image.')
+            raise web.internalerror(message='500 Internal Server: Could not translate image.')
+
+        return translation
+
+    def getLanguage(self, text):
+        LOGGER.info('getText in Enrich called with.')
+
+        languages = gs.get_languages()
+        detected_lang = languages[gs.detect(text)]
+        LOGGER.debug('Detected language: ' + detected_lang)
+
+        return detected_lang
+
+    def enrich(self):
+        pass
+
+    def getJson(self, text, translation, detected_lang):
+        pass
 
 
 def main():
