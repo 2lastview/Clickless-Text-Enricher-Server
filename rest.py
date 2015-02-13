@@ -1,3 +1,4 @@
+import os
 import web
 import uuid
 import logging
@@ -121,10 +122,21 @@ class Enrich:
             LOGGER.warning('Could not open image.')
             raise web.internalerror(message='500 Internal Server: Could not open image.')
 
-        return pytesseract.image_to_string(image, source_lang)
+        try:
+            text = pytesseract.image_to_string(image, source_lang)
+        except:
+            LOGGER.warning('Could not extract text from image.')
+            raise web.internalerror(message='500 Internal Server: Could not extract text from image.')
+
+        LOGGER.debug('')
+        print '---------- Text ----------'
+        print text
+        print '---------- /Text ----------'
+
+        return text
 
     def getTranslation(self, text, target_lang, source_lang=None):
-        LOGGER.info('getTranslation in Enrich called with parameters: text=' + text + ' and target_lang=' + target_lang + ' and source_lang=' + str(source_lang))
+        LOGGER.info('getTranslation in Enrich called with text and parameters: target_lang=' + target_lang + ' and source_lang=' + str(source_lang))
 
         if target_lang == None or len(target_lang) == 0:
             LOGGER.warning('Target lagnuage is not valid.')
@@ -133,18 +145,21 @@ class Enrich:
         try:
             if source_lang == None:
                 translation = gs.translate(text, target_lang)
-                LOGGER.debug('Translation: ' + translation)
             else:
                 translation = gs.translate(text, target_lang, source_lang)
-                LOGGER.debug('Translation: ' + translation)
         except:
             LOGGER.warning('Could not translate image.')
             raise web.internalerror(message='500 Internal Server: Could not translate image.')
 
+        LOGGER.debug('')
+        print '---------- Translation ----------'
+        print translation
+        print '---------- /Translation ----------'
+
         return translation
 
     def getLanguage(self, text):
-        LOGGER.info('getText in Enrich called with.')
+        LOGGER.info('getLanguage in Enrich called with text.')
 
         languages = gs.get_languages()
         detected_lang = languages[gs.detect(text)]
@@ -162,6 +177,9 @@ class Enrich:
 def main():
     logging.basicConfig(format='%(levelname)s - %(module)s - [%(asctime)s] "%(message)s"', datefmt='%d/%h/%Y %H:%M:%S', level=logging.DEBUG)
     LOGGER.info('Main called for CTE REST Server.')
+
+    if not (os.path.isdir('uploads') and os.path.exists('uploads')):
+        os.makedirs('uploads')
 
     app = web.application(urls, globals())
     app.run()
