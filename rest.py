@@ -5,6 +5,7 @@ import logging
 from PIL import Image
 import pytesseract
 import goslate
+import json
 
 LOGGER = logging.getLogger('rest')
 
@@ -71,10 +72,6 @@ class Enrich:
                 final_image_path = image_dir + '/' + image_name
                 text_from_image = self.getText(final_image_path, source_lang)
 
-                if len(text_from_image) <= 0:
-                    LOGGER.debug('No text detected in image.')
-                    raise web.notfound(message='404 Bad Request: No text detected in image.')
-
             LOGGER.debug('Image saved in ' + image_dir + '/' + image_name)
         else:
             LOGGER.debug('No image object created.')
@@ -107,7 +104,7 @@ class Enrich:
             if str(data.enrich).lower() == 'true':
                 enriched_text = self.enrich()
 
-        return self.getJson(text_from_image, translation, detected_lang)
+        return self.getJson(text_from_image, translation, detected_lang, target_lang, source_lang)
 
     def getText(self, image_path, source_lang=None):
         LOGGER.info('getText in Enrich called with parameters: image_path=' + image_path + ' and source_lang=' + str(source_lang))
@@ -123,16 +120,19 @@ class Enrich:
             raise web.internalerror(message='500 Internal Server: Could not open image.')
 
         try:
-            text = pytesseract.image_to_string(image, source_lang)
+            if source_lang == None:
+                text = pytesseract.image_to_string(image)
+            else:
+                text = pytesseract.image_to_string(image, source_lang)
         except:
             LOGGER.warning('Could not extract text from image.')
             raise web.internalerror(message='500 Internal Server: Could not extract text from image.')
 
-        LOGGER.debug('')
-        print '---------- Text ----------'
-        print text
-        print '---------- /Text ----------'
+        if len(text) <= 0:
+            LOGGER.debug('No text detected in image.')
+            raise web.notfound(message='404 Bad Request: No text detected in image.')
 
+        LOGGER.debug('\n---------- Text ----------\n' + text + '\n---------- /Text ----------')
         return text
 
     def getTranslation(self, text, target_lang, source_lang=None):
@@ -151,18 +151,20 @@ class Enrich:
             LOGGER.warning('Could not translate image.')
             raise web.internalerror(message='500 Internal Server: Could not translate image.')
 
-        LOGGER.debug('')
-        print '---------- Translation ----------'
-        print translation
-        print '---------- /Translation ----------'
-
+        LOGGER.debug('\n---------- Translation ----------\n' + translation + '\n---------- /Translation ----------')
         return translation
 
     def getLanguage(self, text):
         LOGGER.info('getLanguage in Enrich called with text.')
 
         languages = gs.get_languages()
-        detected_lang = languages[gs.detect(text)]
+        language = gs.detect(text)
+
+        if language in languages:
+            detected_lang = languages[language]
+        else:
+            detected_lang = 'No language detected.'
+
         LOGGER.debug('Detected language: ' + detected_lang)
 
         return detected_lang
@@ -170,8 +172,18 @@ class Enrich:
     def enrich(self):
         pass
 
-    def getJson(self, text, translation, detected_lang):
-        pass
+    def getJson(self, text, translation, detected_lang, target_lang, source_lang=None):
+        LOGGER.info('getJson in Enrich called with text, translation and parameters: detected_lang=' + detected_lang + ' and target_lang=' + target_lang + ' and source_lang=' + str(source_lang))
+
+        data = [{
+            'source':source_lang,
+            'target':target_lang,
+            'detected':detected_lang,
+            'text':text,
+            'translation':translation
+        }]
+
+        return json.dumps(data)
 
 
 def main():
