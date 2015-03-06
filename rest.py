@@ -6,6 +6,7 @@ from PIL import Image
 import pytesseract
 import goslate
 import json
+import base64
 
 LOGGER = logging.getLogger('rest')
 
@@ -30,6 +31,8 @@ class Enrich:
     def POST(self):
         LOGGER.info('POST in Enrich called.')
 
+        text_from_image = None
+
         source_lang = None
         target_lang = None
         enrich = True
@@ -39,7 +42,7 @@ class Enrich:
         data = web.input(image={})
 
         if 'text' in data:
-            corrected_text = data.text
+            corrected_text = base64.b64decode(data.text)
             corrected = True
 
         if 'image' in data and not corrected:
@@ -63,6 +66,12 @@ class Enrich:
                 LOGGER.debug('400 Bad Request: No file-type specified.')
                 raise web.badrequest(message='No file-type specified.')
 
+            if 'source' in data:
+                source_lang = str(data.source).lower()
+
+            if source_lang not in supported_languages:
+                source_lang = None
+
             image_dir = 'uploads'
             image_id = str(uuid.uuid4())
             image_name = image_id + '.' + filetype
@@ -79,12 +88,6 @@ class Enrich:
                 text_from_image = self.getText(final_image_path, source_lang)
 
             LOGGER.debug('Image saved in ' + image_dir + '/' + image_name)
-
-        if 'source' in data:
-            source_lang = str(data.source).lower()
-
-            if source_lang not in supported_languages:
-                source_lang = None
 
         if 'target' in data:
             target_lang = str(data.target).lower()
