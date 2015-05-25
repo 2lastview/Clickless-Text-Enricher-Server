@@ -28,7 +28,8 @@ Host and port can be specified by simply adding them to the command:
 
     python rest.py 127.0.0.1:8000
 
-By default host and port are defined as 0.0.0.0:8080.
+By default host and port are defined as 0.0.0.0:8080. When running the service the application will try to create a
+folder called uploads, where the uploaded images will be stored.
 
 ####Docker
 
