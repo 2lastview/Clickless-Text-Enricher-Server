@@ -26,7 +26,6 @@ import json
 import base64
 
 LOGGER = logging.getLogger('rest')
-gs = goslate.Goslate()
 
 urls = ('/enrich', 'Enrich')
 
@@ -40,13 +39,19 @@ supported_languages_tesseract = {'en': 'eng',
                                  'es': 'spa',
                                  'sv': 'swe'}
 
+
 class Enrich:
+    """
+    This class enriches an image by extracting text and then translating said text into a specified language.
+    """
 
     def __init__(self):
         pass
 
     def GET(self):
         """
+        This method is the first method that is called. It provides a form that makes uploading an image
+        with POST possible.
         """
 
         LOGGER.info('GET in Enrich called.')
@@ -58,8 +63,28 @@ class Enrich:
 
     def POST(self):
         """
+        image: the image that is supposed to be processed.
+        text: the text that is supposed to be translated.
+        source: the source language.
+        target: the target language.
+        filetype: filetype of the image.
 
-        :return:
+        This method gets called on a POST request to /enrich. If the data contains text, then the image will not
+        be used for operations. If the data contains an image it will be stored in a folder called uploads, using
+        a uniquely identifying name. The first step is extracting text from the image. If there is no specified
+        source language the application will try to extract the text, then detect the language in said text and then
+        try to extract text for a second time. This is supposed to minimize errors made by the ocr engine.
+        The extracted text is then translated to the specified target language. In a last step all the gathered
+        information will be returned in form of a json.
+
+        In case there is no image passed to the function, a bad request error (400) is raised.
+        In case the an unsupported filetype is passed to the function, a bad request error (400) is raised.
+        In case there is no filetype is passed to the function, a bad request error (400) is raised.
+        In case the an unsupported target language is passed to the function, a bad request error (400) is raised.
+        In case the passed image could not be stored, an internal server error (500) is raised.
+        In case there is no target language passed to the function, a bad request error (400) is raised.
+
+        :return: json with detected language, extracted text and translation of the extracted text.
         """
 
         LOGGER.info('POST in Enrich called.')
@@ -169,16 +194,17 @@ class Enrich:
     @staticmethod
     def get_text(image_path, source_lang=None):
         """
-        Extracts text from an image using pytesseract. The image is specified by a file path. A source language can be
-        specified. Note that pytessereact performs much better if a source language is specified.
+        Static method that uses pytesseract to extract text from an image. The image is passed by specifying
+        a file path. A source language can be specified. Note that pytesseract performs much better if a source
+        language is passed.
 
         In case there is no image path passed to the function, an internal server error (500) is raised.
         In case the specified image cannot be opened, an internal server error (500) is raised.
         In case there is an error while extracting text with pytesseract, an internal server error (500) is raised.
         In case there was is no text that could be extracted from the image, a bad request error (404) is raised.
 
-        :param image_path: path where the uploaded image has been stored.
-        :param source_lang: the language being translated from.
+        :param image_path: path to the stored image.
+        :param source_lang: the source language.
         :return: extracted text from the specified image.
         """
 
@@ -214,21 +240,23 @@ class Enrich:
     @staticmethod
     def get_translation(text, target_lang, source_lang=None):
         """
-        Translates the specified text using goslate. A source language can be specified. If not, then the source
-        language is detected automatically by goslate.
+        Static method that translates text using goslate. A source language can be specified. If that is not the case
+        goslate will detect the source language automatically.
 
         In case there is no text passed to the function, an internal server error (500) is raised.
         In case there is no target language passed to the function, an internal server error (500) is raised.
         In case there is an error while translating text with goslate, an internal server error (500) is raised.
 
-        :param text: the original text that is to be translated into another language.
-        :param target_lang: the language being translated to (default None)
-        :param source_lang: the language being translated from.
-        :return: the translation of text in the specified target language.
+        :param text: the original text.
+        :param target_lang: the target language (default None)
+        :param source_lang: the source language.
+        :return: translation of the text in the specified target language.
         """
 
         LOGGER.info('get_translation in Enrich called with text and parameters: target_lang=' + target_lang
                     + ' and source_lang=' + str(source_lang))
+
+        gs = goslate.Goslate()
 
         if text is None or len(text) == 0:
             LOGGER.warning('500 Internal Server: No text specified.')
@@ -253,16 +281,18 @@ class Enrich:
     @staticmethod
     def get_language(text):
         """
-        Detects the source language of the specified text. The detected language is not returned as a abbreviation,
-        but in plain text, defined by google translate.
+        Static method that detects the source language of the specified text. The detected language is returned as an
+        abbreviation.
 
         In case there is no text passed to the function, an internal server error (500) is raised.
 
         :param text: the original text used for language detection.
-        :return: the detected language represented in plain text.
+        :return: abbreviation of the detected language.
         """
 
         LOGGER.info('get_language in Enrich called with text.')
+
+        gs = goslate.Goslate()
 
         if text is None or len(text) == 0:
             LOGGER.warning('500 Internal Server: No text specified.')
@@ -279,10 +309,16 @@ class Enrich:
     @staticmethod
     def get_language_name(language):
         """
+        Static method that transforms the abbreviation for a language returned by goslate into a plain text
+        representation.
 
-        :param language:
-        :return:
+        In case there is no language passed to the function, an internal server error (500) is raised.
+
+        :param language: language abbreviation.
+        :return: language plain text representation.
         """
+
+        gs = goslate.Goslate()
 
         LOGGER.info('get_language_name in Enrich called with language.')
 
@@ -290,7 +326,7 @@ class Enrich:
             LOGGER.warning('500 Internal Server: No language specified.')
             raise web.internalerror(message='No language specified.')
 
-        gs_languages = gs.get_languages();
+        gs_languages = gs.get_languages()
         detected_lang = 'Unknown'
 
         if language in gs_languages:
@@ -302,16 +338,16 @@ class Enrich:
     @staticmethod
     def get_json(text, translation, detected_lang):
         """
-        Combines all gathered information and returns a json file.
+        Combines all gathered information and returns it in form of a json.
 
         In case there is no text passed to the function, an internal server error (500) is raised.
         In case there is no translation passed to the function, an internal server error (500) is raised.
         In case there is no detected language passed to the function, an internal server error (500) is raised.
 
         :param text: the original text.
-        :param translation: the translation of the original text.
-        :param detected_lang: the language that has been detected in text.
-        :return:
+        :param translation: translation of the original text.
+        :param detected_lang: the language that has been detected.
+        :return: json representation of the data.
         """
 
         LOGGER.info('get_json in Enrich called with text, translation and parameters: detected_lang=' + detected_lang)
@@ -339,8 +375,8 @@ class Enrich:
 
 def main():
     """
-
-    :return:
+    Logger is configured so that the output is similar to the logging statements provided by web.py.
+    A folder for uploads is created. This is where uploaded images will be stored.
     """
 
     logging.basicConfig(format='%(levelname)s - %(module)s - [%(asctime)s] "%(message)s"',
