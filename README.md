@@ -5,7 +5,7 @@ An implementation of a RESTful web service used by the Android application [**ha
 in order to extract and translate text from images. The HTTP server is implemented using [web.py](http://webpy.org/). A [Docker Container](https://registry.hub.docker.com/u/2lastview/haello-rest-service/)
 has been created so you can run the service effortlessly.
 
-####Installation
+## Installation
 
 To run the service python 2.7 or higher is required. The other required packages can be found in the [requirements.txt](https://github.com/2lastview/haello-Rest-Service/blob/master/requirements.txt)
 file. If virtualenv is used these requirements can be installed by running the following command:
@@ -18,7 +18,7 @@ packs must also be installed. This step is also mentioned further down. In order
 access the tesseract command a python wrapper called pytesseract has to be installed. This requirement is listed in
 [requirements.txt](https://github.com/2lastview/haello-Rest-Service/blob/master/requirements.txt).
 
-####Installation with Docker
+## Installation with Docker
 
 The simplest way of running the service is by running it inside a docker container. First you need to install docker
 by following the official [installation guide](https://docs.docker.com/installation/#installation). Then you can pull
@@ -34,7 +34,7 @@ The -d flag means that it will run in daemon mode. In the [Dockerfile](https://g
 six language packs are added. You can change this list as you wish, but if you do, you will also have to change the supported
 languages lists in [rest.py](https://github.com/2lastview/haello-Rest-Service/blob/master/src/rest.py).
 
-####Starting the service
+## Starting the service
 
 To start the service navigate to the src folder and execute the following command:
 
@@ -47,7 +47,7 @@ Host and port can be specified by adding them to the command:
 By default host and port are defined as 0.0.0.0:8080. When running the service the application will try to create a
 folder called uploads, where the uploaded images will be stored.
 
-####Send requests to the service
+## Send requests to the service
 
 The RESTful web service provides a HTTP GET page for testing the API (the image is sent as part of the multipart/form-data):
 
@@ -81,7 +81,7 @@ and return a json similar to the following:
         'translation': der fuchs ist faul
     }
 
-####Copyright and License
+## Copyright and License
 
 Author: Moritz Tomasi (moritz.tomasi at gmail dot com)
 
