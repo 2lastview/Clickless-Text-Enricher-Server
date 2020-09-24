@@ -1,6 +1,8 @@
 haello-rest-service
 ===================
 
+This service was developed for a bachelor thesis in "Computer Science and Visual Computing" at the Technical University of Vienna by Moritz Tomasi.
+
 An implementation of a RESTful web service used by the Android application [**haello**](https://github.com/2lastview/haello-Android-Application)
 in order to extract and translate text from images. The HTTP server is implemented using [web.py](http://webpy.org/). A [Docker Container](https://registry.hub.docker.com/u/2lastview/haello-rest-service/)
 has been created so you can run the service effortlessly.
